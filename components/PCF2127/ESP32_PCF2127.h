@@ -13,11 +13,10 @@
 
 #include <stdint.h>
 #include "driver/i2c.h"
+#include <time.h>
+#include <sys/time.h>
 #include <esp_err.h>
 
-extern uint8_t PCF_SDA_PIN;
-extern uint8_t PCF_SCL_PIN;
-extern uint8_t PCF_I2C_PORT;
 
 /* NOTE: As a consequence of this method, it is very important to make a read or write access in
 one go. That is, setting or reading seconds through to years should be made in one single
@@ -134,51 +133,34 @@ cycle.
 #define PCF2127_WD_VAL_DEFAULT		    (60)
 
 // ---------------- BIN2BCD/BCD2BIN AUXILIARY MACROS ----------------
-#define bcd2bin(x) ((uint8_t) ((((x >> 4) & 0x0F) * 10) + (x & 0x0F)))
-#define bin2bcd(x) ((uint8_t) (((x / 10 ) << 4) | ((x % 10))))
+#define bcd2bin(x) ((uint8_t) (((x) & 0x0f) + ((x) >> 4) * 10))
+#define bin2bcd(x) ((uint8_t) ((((x) / 10) << 4) + (x) % 10))
 
-/* Structure to hold time and date */
-typedef struct {
-    int tm_sec;
-    int tm_min;
-    int tm_hour;
-    int tm_mday;
-    int tm_wday;
-    int tm_mon;
-    int tm_year;
-}   rtc_time_t;
-
-/* Structure to hold alarm time */
-typedef struct {
-    bool pending;
+struct alm {
+    struct tm tm;
     bool enabled;
-    int tm_sec;
-    int tm_min;
-    int tm_hour;
-    int tm_mday;
-    int tm_wday;
-}   rtc_alarm_t;
+    bool pending;
+};
 
 /**
  *  @brief  Struct that stores state and functions for interacting with
  *          AS7341 Spectral Sensor
  */
 typedef struct{
-    i2c_config_t conf;
+    uint8_t i2c_port;
     bool init;
-    rtc_time_t time;
-    rtc_alarm_t alarm;
+    struct tm time;
+    struct alm alarm;
 	bool irq_enabled;
     bool batt_Low;
     bool OSF;
 }   ESP32_PCF2127;
 
-esp_err_t PCF_init(ESP32_PCF2127* PCF);
-void PCF_delete();
+void PCF_init(ESP32_PCF2127* PCF, uint8_t i2c_port);
 
 /* Time and date functions */
-void PCF_rtc_read_time(ESP32_PCF2127* PCF);
-void PCF_rtc_set_time(ESP32_PCF2127* PCF);
+struct tm* PCF_rtc_read_time(ESP32_PCF2127* PCF);
+void PCF_rtc_set_time(ESP32_PCF2127* PCF, struct tm* time);
 
 // int pcf2127_nvmem_read(void *priv, unsigned int offset, void *val, size_t bytes);
 // int pcf2127_nvmem_write(void *priv, unsigned int offset, void *val, size_t bytes);
@@ -192,9 +174,9 @@ void PCF_rtc_set_time(ESP32_PCF2127* PCF);
 // int pcf2127_watchdog_init(struct device *dev, struct pcf2127 *pcf2127);
 
 /* Alarm */
-void PCF_rtc_read_alarm(ESP32_PCF2127* PCF);
+struct alm* PCF_rtc_read_alarm(ESP32_PCF2127* PCF);
 void PCF_rtc_alarm_irq_enable(ESP32_PCF2127* PCF, bool enable);
-void PCF_rtc_set_alarm(ESP32_PCF2127* PCF);
+void PCF_rtc_set_alarm(ESP32_PCF2127* PCF, struct alm* alarm);
 
 // int pcf2127_rtc_ts_read(struct device *dev, time64_t *ts);
 // void pcf2127_rtc_ts_snapshot(struct device *dev);

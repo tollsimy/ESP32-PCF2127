@@ -8,15 +8,28 @@
 
 static const char *TAG = "Demo-PCF2127";
 
-uint8_t PCF_SDA_PIN=18;
-uint8_t PCF_SCL_PIN=19;
-uint8_t PCF_I2C_PORT=0;
+#define SDA_PIN (27)
+#define SCL_PIN (32)
+#define I2C_PORT (0)
+
+I2C_CONF={
+    .mode = I2C_MODE_MASTER;
+    .sda_io_num = SDA_PIN;
+    .scl_io_num = SCL_PIN;
+    .sda_pullup_en = GPIO_PULLUP_DISABLE;     //disable if you have external pullup
+    .scl_pullup_en = GPIO_PULLUP_DISABLE;
+    .master.clk_speed = 400000;               //I2C Full Speed
+}
 
 void PCF2127_task(){
+    //Install I2C Driver
+    ESP_ERROR_CHECK(i2c_param_config(I2C_PORT, &(I2C_CONF)));
+    ESP_ERROR_CHECK(i2c_driver_install(I2C_PORT, I2C_MODE_MASTER, 0, 0, 0));
+
     for(;;){
         ESP_LOGI(TAG, "PCF2127 task started");
         ESP32_PCF2127 PCF={0};
-        ESP_ERROR_CHECK(PCF_init(&PCF));
+        ESP_ERROR_CHECK(PCF_init(&PCF, I2C_PORT));
 
         PCF.time.tm_sec=0;
         PCF.time.tm_min=25;
@@ -33,9 +46,9 @@ void PCF2127_task(){
         PCF_rtc_read_time(&PCF);
         ESP_LOGI(TAG, "Time: %d:%d:%d", PCF.time.tm_hour, PCF.time.tm_min, PCF.time.tm_sec);
 
-        PCF_delete();
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
+    ESP_ERROR_CHECK(i2c_driver_delete(I2C_PORT));
 }
 
 void app_main(void)
